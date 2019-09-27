@@ -14,32 +14,41 @@ import java.util.Scanner;
 
 public class Assignment1 extends Application {
 
+    //constants
     int WINDOW_WIDTH = 800;
     int WINDOW_HEIGHT = 800;
-    int startFrequency = -100;
-    int endFrequency = 100;
-    double deltaT = 0.001;
+    int START_FREQUENCY = -100;
+    int END_FREQUENCY = 100;
+    int DOT_RADIUS = 2; //radius of width of dot for drawing the original function
 
-    ArrayList<Double> lengths;
-    ArrayList<Double> startAngles;
-    Group linesGroup = new Group();
-    Group circleGroup = new Group();
+    //constants for generating the original function
+    //domain of the original function
+    int DOMAIN_START = -15;
+    int DOMAIN_END = 15;
+
+    //increment of x when generating original function
+    double FUNCTION_INCREMENT = 0.1;
+
+    //change in time calculated based on the number of coordinates in the original function
+    double DELTA_T = 0.001;
+
+    //groups
+    Group linesGroup;
+    Group originalGroup;
+    Group pathGroup;
 
     @Override
-    public void start(Stage primaryStage) throws Exception {
+    public void start(Stage primaryStage) {
 
-        //gets list of coordinates
-        ArrayList coor = loadFunction();
-        //calculates the change in time
-        deltaT = 1.0 / (coor.size() - 1);
+        ArrayList coor = loadFunction("function.txt"); //gets list of coordinates
+        DELTA_T = 1.0 / (coor.size() - 1); //calculates the change in time based on size of coordinates
 
-        //draws function
-        drawFunction(coor);
+        drawFunction(coor); //draws function
 
         Group root = new Group();
-        root.getChildren().addAll(linesGroup, circleGroup);
+        root.getChildren().addAll(linesGroup, originalGroup, pathGroup);
 
-        primaryStage.setTitle("Hello World");
+        primaryStage.setTitle("Function Approximation");
         primaryStage.setScene(new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT));
         primaryStage.show();
     }
@@ -48,95 +57,104 @@ public class Assignment1 extends Application {
         launch(args);
     }
 
-
-    //creates an arraylist of coordinates from a mathematical function
+    //creates an ArrayList of coordinates from a mathematical function
     public ArrayList loadFunction() {
         ArrayList<Pair<Double, Double>> coor = new ArrayList();
 
-        double maxJ = 15;
-        for (double i = 0, j = -15; j < maxJ; i += deltaT, j += 0.1) {
-            coor.add(new Pair((j), inputFunction((j))));
-
-            Circle circle = new Circle((j) + WINDOW_WIDTH / 2
-                    , inputFunction((j)) + WINDOW_HEIGHT / 2, 2);
-            circle.setFill(Color.RED);
-            circleGroup.getChildren().add(circle);
+        //generates list of coordinates from X = DOMAIN_START to X = DOMAIN_END
+        for (double X = DOMAIN_START; X <= DOMAIN_END; X += FUNCTION_INCREMENT) {
+            coor.add(new Pair((X), inputFunction((X))));
         }
+
         return coor;
     }
 
     //creates an arraylist of coordinates from a file
-    public ArrayList loadFunction(String file) throws FileNotFoundException {
+    public ArrayList loadFunction(String file) {
+
         ArrayList<Pair<Double, Double>> coor = new ArrayList();
 
-        //reads file
-        File input = new File(file);
-        Scanner scan = new Scanner(input);
+        try {
+            //reads file
+            File input = new File(file);
+            Scanner scan = new Scanner(input);
 
-        while (scan.hasNextLine()) {
-            //adds coordinates
-            String line[] = scan.nextLine().split(",");
-            coor.add(new Pair(Double.parseDouble(line[0]), -Double.parseDouble(line[1])));
+            while (scan.hasNextLine()) {
+                //gets coordinates
+                String line[] = scan.nextLine().split(",");
+                coor.add(new Pair(Double.parseDouble(line[0]), -Double.parseDouble(line[1])));
+            }
 
-            Circle circle = new Circle(Double.parseDouble(line[0]) + WINDOW_WIDTH / 2,
-                    -Double.parseDouble(line[1]) + WINDOW_HEIGHT / 2, 1);
-
-            circle.setFill(Color.RED);
-            circleGroup.getChildren().add(circle);
+            scan.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found :(");
         }
-        scan.close();
         return coor;
     }
 
+    //hard coded input function
     private double inputFunction(double x) {
         return x * x;
     }
 
+    //gets all the x and y components for all the lines
     public ArrayList findCfxCfy(ArrayList<Pair<Double, Double>> coor) {
 
         ArrayList<Pair<Double, Double>> endCoor = new ArrayList<>();
-        lengths = new ArrayList<>();
 
-        for (int frequency = startFrequency; frequency <= endFrequency; frequency++) {
+        //loops through each line from START_FREQUENCY to END_FREQUENCY
+        for (int freq = START_FREQUENCY; freq <= END_FREQUENCY; freq++) {
 
-            double startX = 0;
-            double startY = 0;
+            double Cfx = 0; //x component
+            double Cfy = 0; //y component
 
-            int tIndex = 0;
+            int index = 0;
 
-            for (double t = 0; tIndex < coor.size(); t += deltaT) {
-                Double X = coor.get(tIndex).getKey();
-                Double Y = coor.get(tIndex).getValue();
-                startX += deltaT * (X * Math.cos(2 * Math.PI * frequency * t)
-                        + Y * Math.sin(2 * Math.PI * frequency * t));
-                startY -= deltaT * (X * Math.sin(2 * Math.PI * frequency * t)
-                        - Y * Math.cos(2 * Math.PI * frequency * t));
-                tIndex++;
+            for (double t = 0; index < coor.size(); t += DELTA_T) { ////////!fix this
+                // X and Y of original function
+                Double X = coor.get(index).getKey();
+                Double Y = coor.get(index).getValue();
+
+                //calculates components
+                Cfx += DELTA_T * (X * Math.cos(2 * Math.PI * freq * t)
+                        + Y * Math.sin(2 * Math.PI * freq * t));
+                Cfy -= DELTA_T * (X * Math.sin(2 * Math.PI * freq * t)
+                        - Y * Math.cos(2 * Math.PI * freq * t));
+                index++;
             }
-            lengths.add(Math.sqrt(startX * startX + startY * startY));
-            endCoor.add(new Pair(startX, startY));
+            //adds X and Y components
+            endCoor.add(new Pair(Cfx, Cfy));
         }
         return endCoor;
     }
 
-    public void drawFunction(ArrayList coor) {
+    public void drawFunction(ArrayList<Pair<Double, Double>> coor) {
 
-        //linesGroup = new Group();
+        linesGroup = new Group(); //group for spinning lines
+        originalGroup = new Group(); //group for original function
+        pathGroup = new Group(); //group for path object
+
+        //draws original function
+        for (int i = 0; i < coor.size(); i++) {
+            Circle dot = new Circle(coor.get(i).getKey(), coor.get(i).getValue(), DOT_RADIUS);
+            dot.setFill(Color.RED);
+            originalGroup.getChildren().add(dot);
+        }
+
+        //finds end coordinates of all lines when time = 0
         ArrayList<Pair<Double, Double>> endCoor = findCfxCfy(coor);
-
-        ArrayList<Pair<Integer, Pair<Double, Double>>> lines = new ArrayList<>();
 
         double startingEndX = 0;
         double startingEndY = 0;
-        for (int i = 0, lineNum = startFrequency; lineNum <= endFrequency; i++, lineNum++) {
-            lines.add(new Pair(lineNum, endCoor.get(i)));
+
+        for (int i = 0, lineNum = START_FREQUENCY; lineNum <= END_FREQUENCY; i++, lineNum++) {
             startingEndX += endCoor.get(i).getKey();
             startingEndY += endCoor.get(i).getValue();
         }
 
         Path path = new Path();
         path.getElements().add(new MoveTo(startingEndX, startingEndY));
-        circleGroup.getChildren().add(path);
+        pathGroup.getChildren().add(path);
 
         AnimationTimer timer = new AnimationTimer() {
             double time = 0;
@@ -148,20 +166,18 @@ public class Assignment1 extends Application {
                 double lastX = WINDOW_WIDTH / 2;
                 double lastY = WINDOW_HEIGHT / 2;
 
-                for (int i = 0, freq = startFrequency; freq <= endFrequency; i++, freq++) {
+                for (int i = 0, freq = START_FREQUENCY; freq <= END_FREQUENCY; i++, freq++) {
                     double updatedEndX = findX(endCoor.get(i).getKey(), endCoor.get(i).getValue(), freq, time);
                     double updatedEndY = findY(endCoor.get(i).getKey(), endCoor.get(i).getValue(), freq, time);
 
                     linesGroup.getChildren().add(
-                            new Line(lastX, lastY,
-                                    lastX + updatedEndX,
-                                    lastY + updatedEndY)
-                    );
+                            new Line(lastX, lastY, lastX + updatedEndX, lastY + updatedEndY));
+
                     lastX += updatedEndX;
                     lastY += updatedEndY;
                 }
                 path.getElements().add(new LineTo(lastX, lastY));
-                time += deltaT;
+                time += DELTA_T;
                 if (time > 1) this.stop();
             }
         };
