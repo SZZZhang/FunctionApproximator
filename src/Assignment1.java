@@ -14,23 +14,25 @@ import java.util.Scanner;
 
 public class Assignment1 extends Application {
 
-    //constants
+    //CONSTANTS
     int WINDOW_WIDTH = 800;
     int WINDOW_HEIGHT = 800;
     int START_FREQUENCY = -100;
     int END_FREQUENCY = 100;
-    int DOT_RADIUS = 2; //radius of width of dot for drawing the original function
+    int MAX_TIME = 1; //maximum length of time for the program to run
 
-    //constants for generating the original function
     //domain of the original function
-    int DOMAIN_START = -15;
-    int DOMAIN_END = 15;
+    int DOMAIN_START = -250;
+    int DOMAIN_END = 250;
 
     //increment of x when generating original function
     double FUNCTION_INCREMENT = 0.1;
 
+    //radius of dots for drawing the original function
+    int DOT_RADIUS = 2;
+
     //change in time calculated based on the number of coordinates in the original function
-    double DELTA_T = 0.001;
+    double DELTA_T;
 
     //groups
     Group linesGroup;
@@ -40,10 +42,10 @@ public class Assignment1 extends Application {
     @Override
     public void start(Stage primaryStage) {
 
-        ArrayList coor = loadFunction("function.txt"); //gets list of coordinates
-        DELTA_T = 1.0 / (coor.size() - 1); //calculates the change in time based on size of coordinates
+        ArrayList coor = loadFunction(); //gets list of coordinates of original function
+        DELTA_T = 1.0 / (coor.size() - 1); //calculated based on number of coordinates of original function
 
-        drawFunction(coor); //draws function
+        drawFunction(coor); //draws original and approximated functions
 
         Group root = new Group();
         root.getChildren().addAll(linesGroup, originalGroup, pathGroup);
@@ -94,7 +96,7 @@ public class Assignment1 extends Application {
 
     //hard coded input function
     private double inputFunction(double x) {
-        return x * x;
+        return Math.abs(x);
     }
 
     //gets all the x and y components for all the lines
@@ -136,14 +138,16 @@ public class Assignment1 extends Application {
 
         //draws original function
         for (int i = 0; i < coor.size(); i++) {
-            Circle dot = new Circle(coor.get(i).getKey(), coor.get(i).getValue(), DOT_RADIUS);
+            Circle dot = new Circle(coor.get(i).getKey() + WINDOW_WIDTH/2,
+                    coor.get(i).getValue() + WINDOW_HEIGHT/2, DOT_RADIUS);
             dot.setFill(Color.RED);
             originalGroup.getChildren().add(dot);
         }
 
-        //finds end coordinates of all lines when time = 0
+        //finds end coordinates of each line when time = 0
         ArrayList<Pair<Double, Double>> endCoor = findCfxCfy(coor);
 
+        //finds the sum of the vectors at the start
         double startingEndX = 0;
         double startingEndY = 0;
 
@@ -152,9 +156,10 @@ public class Assignment1 extends Application {
             startingEndY += endCoor.get(i).getValue();
         }
 
-        Path path = new Path();
-        path.getElements().add(new MoveTo(startingEndX, startingEndY));
-        pathGroup.getChildren().add(path);
+        //sets the first point in the approximated function
+        Path approximatedFunc = new Path();
+        approximatedFunc.getElements().add(new MoveTo(startingEndX, startingEndY));
+        pathGroup.getChildren().add(approximatedFunc);
 
         AnimationTimer timer = new AnimationTimer() {
             double time = 0;
@@ -163,33 +168,45 @@ public class Assignment1 extends Application {
             public void handle(long now) {
                 linesGroup.getChildren().clear();
 
+                //represents the sum of the X and Y components of all previous lines
                 double lastX = WINDOW_WIDTH / 2;
                 double lastY = WINDOW_HEIGHT / 2;
 
+                //loops through all lines
                 for (int i = 0, freq = START_FREQUENCY; freq <= END_FREQUENCY; i++, freq++) {
+
+                    //updates the end coordinates of this line
                     double updatedEndX = findX(endCoor.get(i).getKey(), endCoor.get(i).getValue(), freq, time);
                     double updatedEndY = findY(endCoor.get(i).getKey(), endCoor.get(i).getValue(), freq, time);
 
                     linesGroup.getChildren().add(
                             new Line(lastX, lastY, lastX + updatedEndX, lastY + updatedEndY));
 
+                    //adds the x and y components of this line to the sum of all previous x and y components of lines
                     lastX += updatedEndX;
                     lastY += updatedEndY;
                 }
-                path.getElements().add(new LineTo(lastX, lastY));
+                //draws new point in approximated function
+                approximatedFunc.getElements().add(new LineTo(lastX, lastY));
+
+                //increments time
                 time += DELTA_T;
-                if (time > 1) this.stop();
+
+                //stops timer if time is more than MAX_TIME
+                if (time > MAX_TIME) this.stop();
             }
         };
-
+        //starts timer
         timer.start();
 
     }
 
+    //finds x of a line with x and y components of cfx and cfy at a certain frequency and time
     public double findX(double cfx, double cfy, double freq, double time) {
         return cfx * Math.cos(2 * Math.PI * freq * time) - cfy * Math.sin(2 * Math.PI * freq * time);
     }
 
+    //finds y of a line with x and y components of cfx and cfy at a certain frequency and time
     public double findY(double cfx, double cfy, double freq, double time) {
         return cfx * Math.sin(2 * Math.PI * freq * time) + cfy * Math.cos(2 * Math.PI * freq * time);
     }
